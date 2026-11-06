@@ -24,11 +24,12 @@ The site keeps an honest score for all four and lets visitors try to beat them.
 - For this card the race-day picks were written into the record on Oct 31 from the race-day engine, not timestamped by an outside service before each post. Only each top pick and its win chance were saved.
 - Results and $2 win payoffs come from official charts or reputable results reports, with source links kept in each result.
 - Fourteen races can't prove an edge for any source. The site shows the exact 95% range for every hit rate.
+- `record.json` holds the graded record and its SHA-256 fingerprint; the page recomputes the fingerprint from its own data and shows whether it matches. Change a pick, finish or payoff and the fingerprint changes.
 
 ## Building
 The page is one self-contained `index.html` built from `src/`:
 - `src/shell.html` (page shell and markers), `src/style.css`, `src/engine.js` (the pure-function model), `src/app.js` and `src/plus.js` (views), `src/data.js` (the read-only database snapshot), `src/shim.js` (in-memory stand-in for the live engine's database).
-- Run `python3 build.py` to rebuild `index.html`. `og.png` is the social share image.
+- Run `python3 build.py` to rebuild `index.html` and `record.json`. `og.png` is the social share image.
 
 ## This copy is read-only
 - **Data:** every result through the Classic, as of Nov 1, 2026.
@@ -37,4 +38,4 @@ The page is one self-contained `index.html` built from `src/`:
 - **Not indexed:** the site asks search engines not to index it.
 
 ## Disclaimer
-Decision support, not betting or financial advice. Every win chance is an estimate, and even a correctly priced 40% horse loses 6 times in 10. Betting is for adults of legal age where they live. Gambling problem? Call or text 1-800-GAMBLER.
+Decision support, not betting or financial advice. Every win chance is an estimate, and even a correctly priced 40% horse loses 6 times in 10. 21+. Bet only where it is legal for you. Gambling problem? Call or text 1-800-GAMBLER (1-800-426-2537) or 1-800-MY-RESET (1-800-697-3738), 24/7.

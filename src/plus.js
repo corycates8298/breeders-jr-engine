@@ -7,7 +7,7 @@
 
 // ---------- the four handicappers ----------
 var SRC = [
-  { k: 'claude', name: 'Claude', who: 'Race-day pick from the 40-factor model (locked)', cls: 'c' },
+  { k: 'claude', name: 'Claude', who: 'Race-day pick from the 40-factor model', cls: 'c' },
   { k: 'jr', name: 'Jr', who: 'Top pick from his handwritten sheet', cls: 'j' },
   { k: 'exp', name: 'The experts', who: 'Most published win picks', cls: 'e' },
   { k: 'mkt', name: 'The market', who: 'Morning-line favorite', cls: 'm' }
@@ -72,9 +72,9 @@ function cardFacts(rec) {
   var g = gradedRaces(), out = [];
   if (!g.length) return out;
   var m = rec.mkt; if (m.n) out.push({ t: 'Chalk ruled', d: 'The morning-line favorite won ' + m.w + ' of ' + m.n + ' races.' });
-  if (rec.lockedN) out.push({ t: 'Claude beat its own odds', d: 'Its locked picks were priced to win about ' + rec.lockedExp.toFixed(1) + ' of ' + rec.lockedN + ' races and won ' + rec.claude.w + '. Favorites winning drove most of that.' });
+  if (rec.lockedN) out.push({ t: 'Claude beat its own odds', d: 'Its race-day picks were priced to win about ' + rec.lockedExp.toFixed(1) + ' of ' + rec.lockedN + ' races and won ' + rec.claude.w + '. Favorites winning drove most of that.' });
   var miss = g.filter(function (r) { var c = callsOf(r); return c.exp === c.win && c.claude !== c.win; });
-  if (miss.length) out.push({ t: 'Where the experts saw more', d: 'The experts\' top pick caught ' + miss.length + ' winner' + (miss.length > 1 ? 's' : '') + ' Claude\'s locked pick missed: ' + miss.map(function (r) { return hName(r.id, canonWinner(r.id)); }).join(', ') + '.' });
+  if (miss.length) out.push({ t: 'Where the experts saw more', d: 'The experts\' top pick caught ' + miss.length + ' winner' + (miss.length > 1 ? 's' : '') + ' Claude\'s race-day pick missed: ' + miss.map(function (r) { return hName(r.id, canonWinner(r.id)); }).join(', ') + '.' });
   var big = null; g.forEach(function (r) { var p = payOf(r.id); if (p != null && (!big || p > big.p)) big = { r: r, p: p }; });
   if (big) { var c = callsOf(big.r); var had = SRC.filter(function (s) { return c[s.k] === c.win; }).map(function (s) { return s.name; });
     out.push({ t: 'Biggest price', d: hName(big.r.id, c.win) + ' paid ' + money(big.p) + ' to win the ' + big.r.name + '. ' + (had.length ? 'Top pick of: ' + had.join(', ') + '.' : 'Nobody\'s top pick.') }); }
@@ -89,7 +89,7 @@ function tileGrid() {
   return '<div class="tiles">' + g.map(function (r) { var c = callsOf(r);
     return '<a class="tile" href="#play-' + esc(r.id) + '"><span class="eyebrow">' + esc(raceShort(r)) + '</span><b>' + esc(r.name) + '</b><span class="tw2">' + chip(c.win) + ' <span class="small">' + esc(hName(r.id, c.win)) + '</span></span><span class="dots">' +
       SRC.map(function (s) { var p = c[s.k]; var st = !p ? 'none' : p === c.win ? 'hit' : 'miss'; return '<i class="d-' + s.cls + ' ' + st + '" title="' + esc(s.name + ': ' + (!p ? 'no pick' : (p === c.win ? 'had the winner' : 'missed'))) + '">' + s.name.replace('The ', '').charAt(0) + '</i>'; }).join('') + '</span></a>'; }).join('') + '</div>' +
-    '<p class="small muted" style="margin-top:6px">Letters: C = Claude (locked), J = Jr, E = experts, M = market. Filled = that source\'s top pick won.</p>';
+    '<p class="small muted" style="margin-top:6px">Letters: C = Claude (race day), J = Jr, E = experts, M = market. Filled = that source\'s top pick won.</p>';
 }
 
 // ---------- Home ----------
@@ -111,7 +111,7 @@ function vHome() {
     h += '<h2>Race by race</h2>' + tileGrid();
   }
   h += '<h2>Why you can trust this record</h2><div class="promises">' +
-    promise('Misses stay on the board', 'Every graded race counts, for every source. Nothing is dropped after the fact.') +
+    promise('Grades itself in public', 'Every graded race counts, for every source, misses included. Nothing is dropped after the fact.') +
     promise('Hindsight is labeled hindsight', 'The model was refit on these same races after they ran. Its refit picks never enter the record; only the picks it made on race day do.') +
     promise('Results from official charts', 'Each finish and $2 payoff is checked against the official chart or two independent reports, with the links kept.') +
     promise('No guarantees, nothing for sale', 'This is a free, read-only record. It sells no picks and promises no profit.') + '</div>' +
@@ -145,7 +145,7 @@ function vPlay() {
   h += '<div class="eyebrow">Race ' + (i + 1) + ' of ' + g.length + ' · ' + esc(dateLong(r.date)) + ' · ' + esc(r.post) + ' ET</div><h2 class="ptitle">' + esc(r.name) + '</h2><div class="small ink2">' + esc(r.distance) + ' ' + esc(r.surface) + (r.grade ? ' · ' + esc(r.grade) : '') + (r.purse ? ' · ' + esc(r.purse) : '') + ' · ' + activeH(a).length + ' starters</div>';
   // the calls
   h += '<div class="calls">' + SRC.map(function (s) { var p = c[s.k]; var res = shown && p ? (p === c.win ? ' hit' : ' miss') : '';
-    return '<div class="call call-' + s.cls + res + '"><span class="eyebrow">' + esc(s.name) + '</span>' + (p ? '<span class="cn">' + chip(p) + ' <b>' + esc(hName(r.id, p)) + '</b></span><span class="small muted">' + (s.k === 'claude' && c.claudeP != null ? 'locked at ' + pct(c.claudeP, 0) + ' to win' : s.k === 'mkt' ? 'morning line ' + esc(hMl(r.id, p)) : s.k === 'jr' ? 'his top pick' : 'most win picks') + '</span>' : '<span class="small muted">' + (s.k === 'jr' ? 'Jr didn\'t play this race' : 'no pick') + '</span>') + (shown && p ? '<span class="verdict">' + (p === c.win ? 'Winner' : 'Missed') + '</span>' : '') + '</div>'; }).join('') + '</div>';
+    return '<div class="call call-' + s.cls + res + '"><span class="eyebrow">' + esc(s.name) + '</span>' + (p ? '<span class="cn">' + chip(p) + ' <b>' + esc(hName(r.id, p)) + '</b></span><span class="small muted">' + (s.k === 'claude' && c.claudeP != null ? pct(c.claudeP, 0) + ' to win on race day' : s.k === 'mkt' ? 'morning line ' + esc(hMl(r.id, p)) : s.k === 'jr' ? 'his top pick' : 'most win picks') + '</span>' : '<span class="small muted">' + (s.k === 'jr' ? 'Jr didn\'t play this race' : 'no pick') + '</span>') + (shown && p ? '<span class="verdict">' + (p === c.win ? 'Winner' : 'Missed') + '</span>' : '') + '</div>'; }).join('') + '</div>';
   // the field: pick a horse
   var field = activeH(a).slice().sort(function (x, y) { return byNum(x.pgm, y.pgm); });
   h += '<h3>' + (shown ? 'The field' : 'Your pick: tap a horse') + '</h3><div class="field">' + field.map(function (hh) { var isMine = mine === String(hh.pgm), isWin = shown && String(hh.pgm) === c.win;
@@ -184,13 +184,13 @@ async function doShare() { var txt = shareText(), url = shareUrl();
 var GLOSS = [
   ['Morning line', 'The track handicapper\'s forecast of the odds, set days before the race. It is a guess about how the public will bet, not a price you can get.'],
   ['Live odds (the tote)', 'The odds set by the money actually bet, which keep moving until the gates open. Your payout is set by the final odds, after the track takes its cut.'],
-  ['Takeout', 'The share of every betting pool the track and the state keep before paying winners, roughly 15–25% depending on the pool. It is why most bets lose money over time.'],
+  ['Takeout', 'The share of every betting pool the track and the state keep before paying winners: about 12–21% on win, place and show bets and up to about 31% on exotics, depending on the state and the pool. It is why most bets lose money over time.'],
   ['Win chance', 'The model\'s estimate of how often a horse wins this race if it were run many times. A 30% horse still loses 7 times in 10.'],
   ['Fair odds', 'The odds that match a win chance exactly: a 25% horse is fair at 3-1. Below fair odds a bet loses money in the long run.'],
   ['Bet only at', 'The lowest odds at which a horse clears the safety margin you pick in the Bet check. If the tote shows less, the answer is PASS.'],
   ['Expected value (EV)', 'Win chance × (odds + 1) − 1. +10% means a $2 bet returns $2.20 on average over many tries, if the win chance is right.'],
   ['Quarter-Kelly', 'A stake rule that bets a quarter of the mathematically optimal fraction of your bankroll, capped at 2% a race, to survive the model being wrong.'],
-  ['Locked pick', 'The model\'s top pick as it stood on race day, before the result. Only locked picks count in the record.'],
+  ['Race-day pick', 'The model\'s top pick as it stood on race day, before the result. Only race-day picks count in the record. (The page sometimes calls these "locked": frozen in the record, not a sure thing.)'],
   ['In hindsight', 'Numbers recomputed with the model after it was refit on these same races. Useful for learning, never counted as a record.'],
   ['Log loss and Brier score', 'Two standard scores for probability forecasts. Lower is better. They reward giving the winner a high chance and punish confident misses.'],
   ['95% range', 'With few races, a record is noisy. The range shows the hit rates the record is consistent with. Seven wins in 14 fits anything from about 23% to 77%.'],
@@ -213,14 +213,14 @@ function vHow() {
     '<div class="panel" style="max-width:680px"><b>The rule the Bet check runs</b><p class="small">Expected value = win chance × (odds + 1) − 1. Bet only when it clears your safety margin and the win chance is at least 5%. Example: a horse at 25% has fair odds of 3-1. With a 15% margin it needs at least 3.6-1 on the tote; at 3-1 the answer is PASS.</p><p class="small">The Bet check opens a 15% margin by default because the model has very few graded races; 3% is the minimum the master method allows. Expect PASS most of the time.</p></div>';
   var cl = rec.claude;
   h += '<h3 id="how-score">How we keep score</h3><ul class="clean">' +
-    '<li><b>Locked picks only.</b> Claude\'s record uses the top pick the race-day engine (v1.1) made before each result. The model was refit afterwards (v2.0) on these same races; anything shown with v2.0 numbers on finished races is labeled "in hindsight" and never enters the record.</li>' +
-    '<li><b>What "locked" means on this card.</b> For the 2026 Breeders\' Cup the race-day picks were written into the record on Oct 31 from the race-day engine, rather than stamped by an outside clock before each post. Treat the record as the engine\'s own log, not a third-party-timestamped one.</li>' +
+    '<li><b>Race-day picks only.</b> Claude\'s record uses the top pick the race-day engine (v1.1) made before each result. The model was refit afterwards (v2.0) on these same races; anything shown with v2.0 numbers on finished races is labeled "in hindsight" and never enters the record.</li>' +
+    '<li><b>What "race-day" means on this card.</b> For the 2026 Breeders\' Cup the race-day picks were written into the record on Oct 31 from the race-day engine, rather than stamped by an outside clock before each post. Treat the record as the engine\'s own log, not a third-party-timestamped one.</li>' +
     '<li><b>Payoffs.</b> Each $2 win payoff comes from the official chart or reputable results reports, with source links kept in the race\'s result record.</li>' +
     '<li><b>Sample size.</b> ' + (cl.n ? 'Claude\'s ' + cl.w + ' winners from ' + cl.n + ' races fits a true hit rate anywhere from ' + pctI(cl.ci[0]) + ' to ' + pctI(cl.ci[1]) + ' (exact 95% range). ' : '') + 'No source on this card has enough races to prove an edge. Judging a method takes hundreds of locked races.</li>' +
-    '<li><b>Win chances, not certainties.</b> ' + (rec.lockedN ? 'Claude\'s locked picks were priced to win about ' + rec.lockedExp.toFixed(1) + ' races and won ' + cl.w + '. Running hot on a small card is luck as much as skill.' : '') + '</li></ul>';
+    '<li><b>Win chances, not certainties.</b> ' + (rec.lockedN ? 'Claude\'s locked picks were priced to win about ' + rec.lockedExp.toFixed(1) + ' races and won ' + cl.w + '. Running hot on a small card is luck as much as skill.' : '') + '</li></ul>' + recordLine();
   h += '<h3 id="how-gaps">Known gaps</h3>' + (gaps.length ? '<ul class="clean">' + gaps.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<p class="muted">None recorded.</p>') + '<p class="small muted">These are the data gaps the engine recorded when it loaded the card (as of ' + esc((S.meta && S.meta.asOf) || '—') + ').</p>';
   h += '<h3 id="how-gloss">Glossary</h3><dl class="gloss">' + GLOSS.map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('') + '</dl>';
-  h += '<h3 id="how-play">Responsible play</h3><div class="panel rg"><p><b>This is decision support, not betting advice.</b> Nothing here is a tip to bet, a promise of profit or licensed financial advice. Most bets lose; the track\'s cut makes sure of it.</p><ul class="clean small"><li>Betting is for adults of legal age where you live, through a licensed, legal outlet.</li><li>Set a budget before the first race and treat it as spent. Never chase losses.</li><li>If money is tight, or you are in a bankruptcy or other financial proceeding, the right bet is no bet.</li><li>Gambling problem? Call or text the National Problem Gambling Helpline, <b>1-800-GAMBLER</b>, any time.</li></ul></div>';
+  h += '<h3 id="how-play">Responsible play</h3><div class="panel rg"><p><b>This is decision support, not betting advice.</b> Nothing here is a tip to bet, a promise of profit or licensed financial advice. Most bets lose; the track\'s cut makes sure of it.</p><ul class="clean small"><li>21+ only. Bet only where it is legal for you, through a licensed outlet.</li><li>Set a budget before the first race and treat it as spent. Never chase losses.</li><li>If money is tight, or you are in a bankruptcy or other financial proceeding, the right bet is no bet.</li><li>Gambling problem? Call or text <b>1-800-GAMBLER</b> (1-800-426-2537) or the National Problem Gambling Helpline, <b>1-800-MY-RESET</b> (1-800-697-3738). Both answer 24/7 by call, text or chat.</li></ul></div>';
   h += '<h3 id="how-credits">Credits and sources</h3><ul class="clean small"><li>Past performances: the Breeders\' Cup\'s free program PPs (Equibase data). Results and payoffs: official charts and the reports linked on each race. Expert picks: linked to each outlet\'s own page.</li><li>Jr\'s method and picks appear with his written permission.</li><li>Model and page: built with Claude. Full source lists are under <a href="#data">Data &amp; sources</a>.</li></ul>';
   return h;
 }
@@ -240,4 +240,22 @@ function raceCalls(r) {
   return '<div class="calls rcalls">' + SRC.map(function (s0) { var p = c[s0.k]; var st = done && p ? (p === c.win ? ' hit' : ' miss') : '';
     return '<div class="call call-' + s0.cls + st + '"><span class="eyebrow">' + esc(s0.name) + (s0.k === 'claude' && done ? ' · race day' : '') + '</span>' + (p ? '<span class="cn">' + chip(p) + ' <b>' + esc(hName(r.id, p)) + '</b></span>' : '<span class="small muted">' + (s0.k === 'jr' ? 'didn\'t play this race' : 'no pick') + '</span>') + (done && p ? '<span class="verdict">' + (p === c.win ? 'Winner' : 'Missed') + '</span>' : '') + '</div>'; }).join('') +
     (done ? '<div class="call call-w"><span class="eyebrow">Winner</span><span class="cn">' + chip(c.win) + ' <b>' + esc(hName(r.id, c.win)) + '</b></span><span class="small muted">' + (c.pay != null ? '$2 win paid ' + money(c.pay) : 'payoff not on file') + '</span></div>' : '') + '</div>';
+}
+// ---------- record fingerprint (SHA-256 of the stored record, checked against record.json) ----------
+var REC = { state: 'idle', hash: null };
+function recordRows() { return Object.keys(S.results).sort().filter(function (rid) { var x = S.results[rid]; return x && x.order && x.order.length; }).map(function (rid) {
+  var res = S.results[rid], pre = res.pre || {}, race = S.races.find(function (r) { return r.id === rid; }) || {};
+  return [rid, String(pre.top == null ? '' : pre.top), pre.p == null ? null : pre.p, String(pre.version == null ? '' : pre.version), res.order.map(String), String(res.winPay == null ? '' : res.winPay), ((race.jr && race.jr.picks) || []).map(String)]; }); }
+function ensureRecordHash() {
+  if (REC.state !== 'idle') return; REC.state = 'busy';
+  try { var enc = new TextEncoder().encode(JSON.stringify(recordRows()));
+    crypto.subtle.digest('SHA-256', enc).then(function (buf) { REC.hash = Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); REC.state = 'done'; render(); }, function () { REC.state = 'na'; render(); });
+  } catch (e) { REC.state = 'na'; }
+}
+function recordLine() {
+  ensureRecordHash(); var pub = window.__RECORD_SHA__ || '';
+  var ok = REC.state === 'done' && REC.hash === pub;
+  return '<div class="fp small"><b>Record fingerprint (SHA-256):</b> <code class="mono" title="' + esc(pub) + '">' + esc(pub.slice(0, 16)) + '…' + esc(pub.slice(-8)) + '</code> ' +
+    (REC.state === 'done' ? (ok ? '<span class="tag good">matches the data on this page</span>' : '<span class="tag bad">does not match: the data changed</span>') : REC.state === 'na' ? '<span class="tag">this browser can\'t check it</span>' : '<span class="tag">checking…</span>') +
+    '<br><span class="muted">A fingerprint of every graded race\'s race-day pick, official order, payoff and Jr\'s picks, published as <a href="record.json">record.json</a> in this site\'s public GitHub history. Change one pick, finish or payoff and the fingerprint changes. It proves the record hasn\'t moved since it was published, not when each pick was made.</span></div>';
 }
