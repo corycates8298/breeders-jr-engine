@@ -25,7 +25,11 @@ print('record sha256', sha)
 pat = re.compile(r'/\*@@([a-z_.]+)@@\*/')
 out = (root / 'src' / 'shell.html').read_text().replace('@@RECORD_SHA@@', sha)
 for _ in range(5):
-    nxt = pat.sub(lambda m: (root / 'src' / m.group(1)).read_text(), out)
+    # inlined scripts must never contain '</script' (a name or note holding it would end the tag early)
+    def fill(m):
+        body = (root / 'src' / m.group(1)).read_text()
+        return re.sub(r'</(script)', lambda x: '<\\/' + x.group(1), body, flags=re.I) if m.group(1).endswith('.js') else body
+    nxt = pat.sub(fill, out)
     if nxt == out: break
     out = nxt
 assert not pat.search(out), 'unfilled marker'

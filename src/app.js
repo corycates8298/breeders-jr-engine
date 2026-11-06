@@ -151,7 +151,7 @@ async function boot() {
   sub('conditions', function (s) { S.conds = docsToMap(s); });
 }
 function noDb() {
-  $('#app').innerHTML = '<div class="empty"><h2>Sign in to see the card</h2><p style="margin:8px auto">The races, Jr\'s sheets and the model live in this page\'s shared database, which loads only for signed-in viewers it is shared with. Sign in to claude.ai and reload.</p></div>';
+  $('#app').innerHTML = '<div class="empty"><h2>The card didn\'t load</h2><p style="margin:8px auto">The race data on this page failed to load. Reload the page; if it keeps happening, the copy you have may be damaged.</p></div>';
 }
 // Every shared path is editor-only (db rules write: admin), so only editors see working save buttons.
 function canSave() { return !!(S.db && S.canEdit); }
@@ -164,6 +164,7 @@ function toast(t) { var el = $('#toast'); el.textContent = t; el.style.display =
 
 /*@@plus.js@@*/
 // ---------- routing ----------
+var VIEW_TITLE = { home: 'Who called the Breeders\' Cup?', play: 'Play the card', dashboard: 'The card', results: 'Scorecard', how: 'How it works', race: 'Race', horse: 'Horse', horses: 'All horses', races: 'Race list', forecast: 'Forecast', situations: 'Situations', connections: 'Connections', factors: '40 factors', factor: 'Factor', jr: 'Jr\'s method', model: 'Model', cards: 'Load a card', data: 'Data & sources' };
 var LAB_VIEWS = ['forecast', 'races', 'horses', 'horse', 'situations', 'connections', 'factors', 'factor', 'jr', 'model', 'cards', 'data'];
 function route() {
   var h = (location.hash || '#home').slice(1);
@@ -362,8 +363,8 @@ function render() {
   document.querySelectorAll('[data-editor]').forEach(function (el) { el.hidden = !canSave(); });
   var m = $('#hdrmeta');
   if (S.races.length) {
-    var nAct = 0, nScr = 0; S.races.forEach(function (r) { var a = A[r.id]; if (!a) return; a.race.horses.forEach(function (h) { if (E.isActive(h)) nAct++; if (h.status === 'scratched') nScr++; }); });
-    m.innerHTML = '<span><b>' + S.races.length + '</b> races</span><span><b>' + nAct + '</b> starters · ' + nScr + ' scratched</span><span>Model <b>' + esc((weightsNow().version) || 'v1.0') + (S.ui.what ? ' (what-if)' : '') + '</b></span><span>PPs as of ' + esc((S.meta && S.meta.asOf) || '—') + '</span>' + (lastUpdate() ? '<span>Race-day update <b>' + esc(fmtWhen(lastUpdate())) + '</b></span>' : '');
+    var nAct = 0, nScr = 0, nAE = 0; S.races.forEach(function (r) { var a = A[r.id]; if (!a) return; a.race.horses.forEach(function (h) { if (E.isActive(h)) nAct++; else if (h.status === 'scratched') { var raw = (r.horses.find(function (x) { return x.pgm === h.pgm; }) || {}).status; if (raw === 'AE') nAE++; else nScr++; } }); });
+    m.innerHTML = '<span><b>' + S.races.length + '</b> races</span><span><b>' + nAct + '</b> starters · ' + nScr + ' scratched' + (nAE ? ' · ' + nAE + ' AEs didn\'t draw in' : '') + '</span><span>Model <b>' + esc((weightsNow().version) || 'v1.0') + (S.ui.what ? ' (what-if)' : '') + '</b></span><span>PPs as of ' + esc((S.meta && S.meta.asOf) || '—') + '</span>' + (lastUpdate() ? '<span>Race-day update <b>' + esc(fmtWhen(lastUpdate())) + '</b></span>' : '');
   }
   var cards = {}; S.races.forEach(function (r) { cards[E.cardOf(r)] = 1; }); var eb = $('#eyebrow'); if (eb && S.races.length) { var ds = raceDates(); eb.textContent = (cards.bc26 ? 'Breeders\' Cup 2026 · Keeneland' : Object.keys(cards).join(' + ')) + (Object.keys(cards).length > 1 && cards.bc26 ? ' + ' + (Object.keys(cards).length - 1) + ' more card' + (Object.keys(cards).length > 2 ? 's' : '') : '') + ' · ' + dateShort(ds[0]).slice(4) + (ds.length > 1 ? ' – ' + dateShort(ds[ds.length - 1]).slice(4) : ''); }
   if (!S.ready) return;
@@ -392,8 +393,10 @@ function render() {
   if (LAB_VIEWS.indexOf(v) >= 0 && S.races.some(function (r0) { return hasRes(r0.id); })) html = '<p class="note labnote small">Lab views run today\'s refit model (' + esc(weightsNow().version || '') + '). On finished races its numbers are hindsight, tuned on those results; the <a href="#results">scorecard</a> uses race-day picks only.</p>' + html;
   var sp = scnParts(); if (sp.length) html = '<div class="note scn" style="margin-top:10px">What-if on this screen only: ' + esc(sp.join(' · ')) + ' <button class="btn" data-act="scn-reset">Clear</button> <a href="#forecast">Edit</a></div>' + html;
   if (S.errors.length) html = '<p class="note">Some data could not load: ' + esc(S.errors.join('; ')) + '</p>' + html;
+  if (html.indexOf('<h1') < 0) html = '<h1 class="sr">' + esc(VIEW_TITLE[v] || 'Called the Card') + '</h1>' + html;
   $('#app').innerHTML = html;
   document.querySelectorAll('#app [data-go]').forEach(function (el) { el.tabIndex = 0; el.setAttribute('role', 'link'); });
+  var twN = 0, twSeen = {}; document.querySelectorAll('#app .tw, #app .mathbox').forEach(function (el) { if (el.scrollWidth > el.clientWidth + 1) { twN++; var hd = el.previousElementSibling; while (hd && !/^H[1-4]$/.test(hd.tagName)) hd = hd.previousElementSibling; var lb = (hd ? hd.textContent.trim().slice(0, 60) : 'Table ' + twN); if (twSeen[lb]) lb += ' ' + (++twSeen[lb]); else twSeen[lb] = 1; el.tabIndex = 0; el.setAttribute('role', 'region'); el.setAttribute('aria-label', lb + ' (table, scrolls sideways)'); } });
 }
 
 function vDashboard() {
@@ -407,7 +410,7 @@ function vDashboard() {
     kpi(jrRaces.length, 'races Jr has picked', 'his top pick matches the market favorite in ' + agree) +
     kpi(E.FACTORS.length, 'factors per horse', 'all required · the top third of each field goes green') +
     (function () { var pr = preRecord(); return pr.n ? kpi(pr.w + '/' + pr.n, 'races won by Claude\'s pre-race pick', 'the race-day engine\'s picks (v1.1) · refit model in hindsight ' + claudeHits + '/' + graded.length + ' · market favorite ' + consHits + '/' + graded.length) : kpi(graded.length ? (claudeHits + '/' + graded.length) : '—', 'races won by Claude\'s top pick', graded.length ? 'market favorite: ' + consHits + '/' + graded.length : 'results arrive after each race day'); })() + '</div>';
-  var fd = defaultFday(); if (fd) { var fr = S.races.filter(function (r) { return r.date === fd; }); var fdone = S.races.filter(function (r) { return r.date <= fd && hasRes(r.id); }).length; var rl = relDay(fd);
+  var fd = S.races.every(function (r0) { return hasRes(r0.id); }) ? null : defaultFday(); if (fd) { var fr = S.races.filter(function (r) { return r.date === fd; }); var fdone = S.races.filter(function (r) { return r.date <= fd && hasRes(r.id); }).length; var rl = relDay(fd);
     h += '<a class="panel" href="#forecast" style="display:block;text-decoration:none;color:inherit;margin-bottom:12px;border-left:4px solid var(--s-claude)"><div class="eyebrow">Forecast</div><b style="font:600 18px var(--f-display)">' + esc(dateLong(fd)) + (rl === 'today' || rl === 'tomorrow' ? ' (' + rl + ')' : '') + ': ' + fr.length + ' races</b><div class="small ink2">Projected from the full model plus what earlier races show (bias by surface, key races, going, pace). Fed by ' + fdone + ' result' + (fdone === 1 ? '' : 's') + ' so far; it updates as each one is entered. Open the forecast →</div></a>'; }
   var nx = nextRace(); if (nx && A[nx.id] && A[nx.id].M.order.length) { var an = A[nx.id], pn = an.M.order[0], fn = an.C.order[0], hn = horse(nx.id, pn), hfn = horse(nx.id, fn);
     h += '<a class="panel" href="#race-' + nx.id + '" style="display:block;text-decoration:none;color:inherit;margin-bottom:12px;border-left:4px solid var(--s-mkt)"><div class="eyebrow">Next post</div><b style="font:600 18px var(--f-display)">' + esc(raceTitle(nx)) + ' · ' + esc(nx.post) + ' ET' + (localPost(nx) ? ' (' + esc(localPost(nx)) + ' your time)' : '') + '</b>' + staleTag(nx) + '<div class="small ink2">Claude\'s top pick ' + chip(pn) + ' ' + esc(hn ? hn.name : pn) + ' (' + pct(an.M.p[pn], 0) + ') · market favorite ' + chip(fn) + ' ' + esc(hfn ? hfn.name : fn) + ' (' + pct(an.C.q[fn], 0) + ')' + (an.D ? ' · Jr has picked it' : '') + (E.expertTop(an.C) ? ' · experts\' pick ' + chip(E.expertTop(an.C)) : '') + '. Mark late scratches and live odds under Race-day updates, then open Bet check →' + (readyDone(loadReady()) ? '' : '<br><b>Before betting:</b> finish the readiness check in the race\'s Bet check tab (location, licensed app, verified, funded).') + '</div></a>'; }
@@ -554,7 +557,7 @@ function readyBlock() { var d = loadReady(); var done = readyDone(d);
 function raceBets(a) {
   var r = a.race, d = loadReady(), live = S.live[r.id] && S.live[r.id].odds;
   var B = E.betCheck(r, a.M, a.C, live, { bankroll: d.bankroll, minBet: d.minBet, minEV: d.margin });
-  var h = '<p class="ink2">The master prompt\'s betting rules, run on this race. A win bet needs the <b>live</b> price: expected value = Claude\'s chance × (odds + 1) − 1, and it must clear your safety margin (now +' + Math.round(d.margin * 100) + '%; 15% is recommended while the model has few graded races, 3% is the master method\'s minimum) with a chance of at least 5%. Stakes are a quarter of the Kelly amount, capped at 2% of bankroll a race. Expect PASS most of the time: the track keeps roughly 12–21% of every win pool (more on exotics), so the model has to see more than that.</p>';
+  var h = '<p class="ink2">The master prompt\'s betting rules, run on this race. A win bet needs the <b>live</b> price: expected value = Claude\'s chance × (odds + 1) − 1, and it must clear your safety margin (now +' + Math.round(d.margin * 100) + '%; 15% is recommended while the model has few graded races, 3% is the master method\'s minimum) with a chance of at least 5%. Stakes are a quarter of the Kelly amount, capped at 2% of bankroll a race. Expect PASS most of the time: the track keeps roughly 12–25% of every win pool (up to about 35% on exotics), so the model has to see more than that.</p>';
   if (hasRes(r.id)) h += '<p class="note">This race is official. The table replays the check with today\'s numbers.</p>';
   if (B.basis === 'ML') h += '<p class="note">No complete live odds yet, so nothing below is a bet. The morning line is shown only to tell you the minimum odds you would need. Enter every starter\'s odds under Race-day updates 2–5 minutes before post.</p>';
   h += readyBlock();
@@ -747,7 +750,7 @@ function vResults() {
     h += scoreboard(graded);
     h += '<div class="tw" style="margin-top:12px"><table><thead><tr><th>Race</th><th>Winner</th><th>Pre-race pick</th><th class="r">Claude chance</th><th class="r">Market chance</th><th class="r">Claude rank</th><th>Jr</th></tr></thead><tbody>' + graded.map(function (r) { var a = A[r.id], g = a.G; var w = horse(r.id, g.winner); var pre = S.results[r.id] && S.results[r.id].pre; var ph = pre && pre.top ? horse(r.id, String(pre.top)) : null; return '<tr><td>' + esc(raceTitle(r)) + '</td><td>' + chip(g.winner) + ' ' + esc(w ? w.name : '') + '</td><td>' + (pre && pre.top ? chip(String(pre.top)) + ' <span class="small">' + esc(ph ? ph.name : '') + ' (' + pct(pre.p, 0) + ', ' + esc(pre.version || '') + ')</span>' + (String(pre.top) === g.winner ? ' <span class="tag good">won</span>' : '') : '<span class="muted small">not locked</span>') + '</td><td class="r num">' + pct(a.M.p[g.winner]) + '</td><td class="r num">' + pct(a.C.q[g.winner]) + '</td><td class="r num">' + g.claude.rankOfWinner + '</td><td>' + (g.jr ? (g.jr.top1 ? '<span class="tag good">top pick won</span>' : g.jr.inPicks ? '<span class="tag acc">in his picks (#' + g.jr.pos + ')</span>' : '<span class="tag">missed</span>') : '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   } else h += '<p class="note">No results yet. They are recorded after each race (Race-day updates on each race, or the scheduled review the morning after).</p>';
-  h += '<h3>Run a review now</h3><div class="filters"><button class="btn primary" data-act="tune">Grade and refit</button>' + (S.ui.tuneOut && S.ui.tuneOut.ok && S.ui.tuneOut.adopt ? '<button class="btn" data-act="adopt"' + (canSave() ? '' : ' disabled') + '>Adopt the refit as a new version</button>' : '') + '</div>';
+  if (canSave()) h += '<h3>Run a review now</h3><div class="filters"><button class="btn primary" data-act="tune">Grade and refit</button>' + (S.ui.tuneOut && S.ui.tuneOut.ok && S.ui.tuneOut.adopt ? '<button class="btn" data-act="adopt"' + (canSave() ? '' : ' disabled') + '>Adopt the refit as a new version</button>' : '') + '</div>';
   var t = S.ui.tuneOut;
   if (t) h += t.ok ? '<p>On ' + t.graded + ' graded races, log loss goes from <b>' + t.before.toFixed(3) + '</b> to <b>' + t.after.toFixed(3) + '</b> in-sample (' + t.improvementPct + '%), and by <b>' + t.heldOutPct + '%</b> on held-out races. Target: 5%. <b>' + esc(t.why) + '</b></p><div class="mathbox">' + esc(JSON.stringify(t.weights)) + '</div>' : '<p class="note">' + esc(t.reason) + '</p>';
   h += '<h3>Review log</h3><div class="tw"><table><thead><tr><th>Date</th><th>Races graded</th><th class="r">Before</th><th class="r">After</th><th class="r">Change</th><th>Adopted</th><th>Reflection</th></tr></thead><tbody>' + (S.reviews.length ? S.reviews.map(function (v) { return '<tr><td class="small">' + esc(v.date) + '</td><td class="r num">' + esc(v.graded) + '</td><td class="r num">' + (v.before != null ? (+v.before).toFixed(3) : '—') + '</td><td class="r num">' + (v.after != null ? (+v.after).toFixed(3) : '—') + '</td><td class="r num">' + (v.improvementPct != null ? v.improvementPct + '%' : '—') + '</td><td>' + (v.adopted ? '<span class="tag good">' + esc(v.version || 'yes') + '</span>' : '<span class="tag">no</span>') + '</td><td class="small" style="white-space:normal;min-width:260px">' + esc(v.notes || '') + '</td></tr>'; }).join('') : '<tr><td colspan="7" class="muted">No reviews yet. The first runs the morning after Friday\'s races.</td></tr>') + '</tbody></table></div>';
@@ -860,7 +863,7 @@ function vForecast() {
   var surfs = {}; day.forEach(function (r) { surfs[E.raceSurface(r)] = surfs[E.raceSurface(r)] || r.id; });
   var keyN = 0; day.forEach(function (r) { var a = A[r.id]; if (!a) return; activeH(a).forEach(function (hh) { if (a.ctx && a.ctx.keyRefs && a.ctx.keyRefs[hh.pgm] && a.ctx.keyRefs[hh.pgm].length) keyN++; }); });
   var moved = 0; day.forEach(function (r) { var a = A[r.id]; if (a && a.M.order[0] !== a.MB.order[0]) moved++; });
-  h += '<div class="grid g4" style="margin:10px 0">' + kpi(day.length, 'races', dateShort(d)) + kpi(priorOff.length + sameDone + (priorHyp.length ? '+' + priorHyp.length : ''), 'earlier races feeding it', priorHyp.length ? 'official + hypothetical' : (priorOpen.length ? priorOpen.length + ' earlier race(s) not yet run' : 'all earlier races have results')) +
+  h += '<div class="grid g4" style="margin:10px 0">' + kpi(day.length, 'races', dateShort(d)) + kpi(priorOff.length + sameDone + (priorHyp.length ? '+' + priorHyp.length : ''), sameDone ? 'results on file (' + priorOff.length + ' earlier, ' + sameDone + ' same day)' : 'earlier races feeding it', priorHyp.length ? 'official + hypothetical' : (priorOpen.length ? priorOpen.length + ' earlier race(s) not yet run' : 'all earlier races have results')) +
     kpi(keyN, 'horses with key-race links', 'rivals from the same preps already run') + kpi(moved, 'top picks changed', 'by situation terms vs v1.0 terms') + '</div>';
   // what earlier races teach
   h += '<div class="cols2"><div class="panel"><h3 style="margin-top:0">What the earlier races are saying</h3>';
@@ -1047,6 +1050,7 @@ function horseSituation(a, hh) {
 
 // ---------- events ----------
 document.addEventListener('click', function (e) {
+  var sk = e.target.closest('a.skip'); if (sk) { e.preventDefault(); var mn = $('#app'); if (mn) mn.focus(); return; }
   var g = e.target.closest('[data-go]'); if (g && !e.target.closest('a,button,input,select,textarea,label')) { location.hash = g.getAttribute('data-go'); return; }
   var b = e.target.closest('[data-rt]'); if (b) { e.preventDefault(); S.ui.raceTab = b.getAttribute('data-rt'); render(); return; }
   var b2 = e.target.closest('[data-st2]'); if (b2) { S.ui.sitTab = b2.getAttribute('data-st2'); render(); return; }

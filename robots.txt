@@ -1,2 +1,15 @@
+# Search engines: please don't index this site. Link-preview bots may read the share card.
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /
+
 User-agent: *
 Disallow: /

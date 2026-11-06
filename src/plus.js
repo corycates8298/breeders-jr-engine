@@ -7,7 +7,7 @@
 
 // ---------- the four handicappers ----------
 var SRC = [
-  { k: 'claude', name: 'Claude', who: 'Race-day pick from the 40-factor model', cls: 'c' },
+  { k: 'claude', name: 'Claude', who: 'Race-day pick from the v1.1 model', cls: 'c' },
   { k: 'jr', name: 'Jr', who: 'Top pick from his handwritten sheet', cls: 'j' },
   { k: 'exp', name: 'The experts', who: 'Most published win picks', cls: 'e' },
   { k: 'mkt', name: 'The market', who: 'Morning-line favorite', cls: 'm' }
@@ -52,19 +52,29 @@ function roiTag(o) { if (o.roi == null) return '—'; return '<span style="color
 // ---------- the leaderboard (tote board) ----------
 function leaderboard(rec, opts) {
   opts = opts || {};
+  // Sources that played the whole card are ranked against each other. A source that played only part of it
+  // (Jr, Friday only) is shown unranked, with how the others did on the same races, so a short record can't top the board.
   var rows = SRC.map(function (s) { return rec[s.k]; }).filter(function (o) { return o.n; });
-  rows.sort(function (x, y) { return (y.rate - x.rate) || (y.n - x.n); });
+  var full = rows.filter(function (o) { return o.n === rec.graded; }), part = rows.filter(function (o) { return o.n < rec.graded; });
+  full.sort(function (x, y) { return (y.rate - x.rate) || (y.back - x.back); });
   var h = '<div class="board" role="table" aria-label="Final standings">';
-  rows.forEach(function (o, i) {
-    h += '<div class="lane lane-' + o.cls + '" role="row"><div class="pos num" role="cell">' + (i + 1) + '</div>' +
-      '<div class="who" role="cell"><b>' + esc(o.name) + '</b><span>' + esc(o.who) + (o.n < rec.graded ? ' · played ' + o.n + ' of ' + rec.graded : '') + '</span></div>' +
+  full.concat(part).forEach(function (o, i) { var isPart = o.n < rec.graded;
+    h += '<div class="lane lane-' + o.cls + (isPart ? ' part' : '') + '" role="row"><div class="pos num" role="cell">' + (isPart ? '<span title="Played part of the card, so not ranked">–</span>' : (i + 1)) + '</div>' +
+      '<div class="who" role="cell"><b>' + esc(o.name) + '</b><span>' + esc(o.who) + (isPart ? ' · played ' + o.n + ' of ' + rec.graded + ' · ' + esc(sameRaces(o)) : '') + '</span></div>' +
       '<div class="track" role="cell" aria-label="' + o.w + ' winners from ' + o.n + ' races"><i style="width:' + (100 * o.rate).toFixed(1) + '%"></i></div>' +
       '<div class="rec num" role="cell"><b>' + o.w + '<small>/' + o.n + '</small></b><span>' + pctI(o.rate) + ' won</span></div>' +
       '<div class="roi num" role="cell"><b>' + roiTag(o) + '</b><span>' + money(o.back) + ' back on ' + money(o.stake) + (o.unk ? ' · ' + o.unk + ' payoff missing' : '') + '</span></div></div>';
   });
   h += '</div>';
-  if (!opts.bare) h += '<p class="small muted" style="margin-top:8px">A flat $2 win bet on each source\'s top pick in every race it played, at the official $2 payoffs. Ranked by share of winners. With so few races these are records, not proof of skill: see <a href="#how-score">how we keep score</a>.</p>';
+  if (!opts.bare) h += '<p class="small muted" style="margin-top:8px">A flat $2 win bet on each source\'s top pick in every race it played, at the $2 win payoffs. Sources that played all ' + rec.graded + ' races are ranked by share of winners; a source that played only some races is shown unranked. With so few races these are records, not proof of skill: see <a href="#how-score">how we keep score</a>.</p>';
   return h;
+}
+// How the full-card sources did on exactly the races a part-card source played.
+function sameRaces(o) {
+  var played = gradedRaces().filter(function (r) { var c = callsOf(r); return c && c[o.k]; });
+  var parts = SRC.filter(function (s) { return s.k !== o.k; }).map(function (s) { var w = played.filter(function (r) { var c = callsOf(r); return c[s.k] && c[s.k] === c.win; }).length; return { n: s.name.replace('The ', ''), w: w }; });
+  var same = parts.every(function (x) { return x.w === o.w; });
+  return same ? 'on those ' + played.length + ' races everyone went ' + o.w + '-for-' + played.length : 'on those races: ' + parts.map(function (x) { return x.n + ' ' + x.w + '/' + played.length; }).join(', ');
 }
 
 // ---------- facts the card produced (all computed, nothing typed in) ----------
@@ -72,6 +82,8 @@ function cardFacts(rec) {
   var g = gradedRaces(), out = [];
   if (!g.length) return out;
   var m = rec.mkt; if (m.n) out.push({ t: 'Chalk ruled', d: 'The morning-line favorite won ' + m.w + ' of ' + m.n + ' races.' });
+  var fol = g.map(callsOf).filter(function (c) { return c && c.claude; }), nf = fol.filter(function (c) { return c.claude === c.mkt; }).length, ne = fol.filter(function (c) { return c.claude !== c.mkt && c.claude === c.exp; }).length;
+  if (fol.length) out.push({ t: 'Claude mostly agreed with the crowd', d: 'Its race-day pick was the morning-line favorite in ' + nf + ' of ' + fol.length + ' races' + (ne ? ' and the experts\' top pick in ' + (ne === fol.length - nf ? 'the other ' + ne : ne + ' more') : '') + '.' + (ne && ne === fol.length - nf ? ' Where it differed from the favorite, it followed the experts.' : '') });
   if (rec.lockedN) out.push({ t: 'Claude beat its own odds', d: 'Its race-day picks were priced to win about ' + rec.lockedExp.toFixed(1) + ' of ' + rec.lockedN + ' races and won ' + rec.claude.w + '. Favorites winning drove most of that.' });
   var miss = g.filter(function (r) { var c = callsOf(r); return c.exp === c.win && c.claude !== c.win; });
   if (miss.length) out.push({ t: 'Where the experts saw more', d: 'The experts\' top pick caught ' + miss.length + ' winner' + (miss.length > 1 ? 's' : '') + ' Claude\'s race-day pick missed: ' + miss.map(function (r) { return hName(r.id, canonWinner(r.id)); }).join(', ') + '.' });
@@ -98,7 +110,7 @@ function vHome() {
   var cardName = (S.meta && S.meta.card) || 'Breeders\' Cup 2026, Keeneland';
   var h = '<section class="hero"><div class="eyebrow">' + esc(cardName) + ' · ' + (open.length ? open.length + ' race' + (open.length > 1 ? 's' : '') + ' still to run' : 'all ' + g.length + ' races final') + '</div>' +
     '<h1 class="htitle">Who called the Breeders\' Cup?</h1>' +
-    '<p class="lede">An AI model reading 40 factors per horse. Jr\'s handwritten sheet. The published experts. The betting market. All four picked every race they played, and we kept score, misses included.</p>' +
+    '<p class="lede">An AI model that weighs the odds, the experts and each horse\'s form. Jr\'s handwritten sheet. The published experts. The betting market. Each made its calls, and we kept score, misses included.</p>' +
     '<div class="cta"><a class="btn big primary" href="#play">Can you beat them? Play the card</a><a class="btn big" href="#dashboard">See every race</a></div>' +
     '<p class="small muted">Play first if you don\'t know the results yet. The standings below give them away.</p></section>';
   if (open.length) { var nx = nextRace();
@@ -113,7 +125,7 @@ function vHome() {
   h += '<h2>Why you can trust this record</h2><div class="promises">' +
     promise('Grades itself in public', 'Every graded race counts, for every source, misses included. Nothing is dropped after the fact.') +
     promise('Hindsight is labeled hindsight', 'The model was refit on these same races after they ran. Its refit picks never enter the record; only the picks it made on race day do.') +
-    promise('Results from official charts', 'Each finish and $2 payoff is checked against the official chart or two independent reports, with the links kept.') +
+    promise('Results checked twice', 'Every winner, finish and $2 payoff was re-checked after the card against independent published results, including chart data. The links are on each race page.') +
     promise('No guarantees, nothing for sale', 'This is a free, read-only record. It sells no picks and promises no profit.') + '</div>' +
     '<p class="small ink2" style="margin-top:8px">One limit up front: on this card the race-day picks were written into the record on Oct 31 from the race-day engine, not stamped by an outside clock before each post. <a href="#how-score">Details</a>.</p>';
   return h;
@@ -163,7 +175,7 @@ function vPlay() {
   h += '</div>';
   // scoreboard so far
   var t = playTally(g), done = Object.keys(PLAY.shown).filter(function (k) { return g.some(function (x) { return x.id === k; }); }).length;
-  h += '<div class="panel ptally"><div class="eyebrow">Your scorecard · ' + done + ' of ' + g.length + ' revealed</div><table><thead><tr><th></th><th class="r">Winners</th><th class="r">$2 win bets</th></tr></thead><tbody>' +
+  h += '<div class="panel ptally"><div class="eyebrow">Your scorecard · ' + done + ' of ' + g.length + ' revealed</div><table><thead><tr><th><span class="sr">Player</span></th><th class="r">Winners</th><th class="r">$2 win bets</th></tr></thead><tbody>' +
     '<tr class="me"><td><b>You</b></td><td class="r num"><b>' + t.you.w + '</b>/' + t.you.n + '</td><td class="r num">' + (t.you.n ? money(t.you.back) + ' on ' + money(2 * t.you.n) : '—') + '</td></tr>' +
     SRC.map(function (s) { var o = t[s.k]; return '<tr><td>' + esc(s.name) + '</td><td class="r num">' + o.w + '/' + o.n + '</td><td class="r num">' + (o.n ? money(o.back) + ' on ' + money(2 * o.n) : '—') + '</td></tr>'; }).join('') + '</tbody></table>';
   if (done === g.length) { h += '<p><b>' + esc(finalLine(t)) + '</b></p><div class="filters"><button class="btn primary" data-act="play-share">Share my score</button><button class="btn" data-act="play-reset">Play again</button></div>'; }
@@ -184,7 +196,7 @@ async function doShare() { var txt = shareText(), url = shareUrl();
 var GLOSS = [
   ['Morning line', 'The track handicapper\'s forecast of the odds, set days before the race. It is a guess about how the public will bet, not a price you can get.'],
   ['Live odds (the tote)', 'The odds set by the money actually bet, which keep moving until the gates open. Your payout is set by the final odds, after the track takes its cut.'],
-  ['Takeout', 'The share of every betting pool the track and the state keep before paying winners: about 12–21% on win, place and show bets and up to about 31% on exotics, depending on the state and the pool. It is why most bets lose money over time.'],
+  ['Takeout', 'The share of every betting pool the track and the state keep before paying winners: roughly 12–25% on win, place and show bets and up to about 35% on exotics, depending on the state and the pool. It is why most bets lose money over time.'],
   ['Win chance', 'The model\'s estimate of how often a horse wins this race if it were run many times. A 30% horse still loses 7 times in 10.'],
   ['Fair odds', 'The odds that match a win chance exactly: a 25% horse is fair at 3-1. Below fair odds a bet loses money in the long run.'],
   ['Bet only at', 'The lowest odds at which a horse clears the safety margin you pick in the Bet check. If the tote shows less, the answer is PASS.'],
@@ -205,7 +217,7 @@ function vHow() {
   var h = '<h2>How it works</h2><p class="lede" style="max-width:68ch">Four handicappers, one card, one honest scorecard. Here is what each number means, how the record is kept, and what we still don\'t know.</p>';
   h += '<nav class="toc small"><a href="#how-four">The four handicappers</a> · <a href="#how-value">Winners vs value</a> · <a href="#how-score">How we keep score</a> · <a href="#how-gaps">Known gaps</a> · <a href="#how-gloss">Glossary</a> · <a href="#how-play">Responsible play</a> · <a href="#how-credits">Credits</a></nav>';
   h += '<h3 id="how-four">The four handicappers</h3><div class="facts">' +
-    '<div class="panel fact"><b>Claude</b><p>A model that starts from the market\'s odds and moves them with speed figures, Grade 1 form, pace, track bias, expert picks, Jr\'s picks and 40 factors per horse. It refits itself after each race day and keeps a change only if it predicts better on races it was not fitted to.</p></div>' +
+    '<div class="panel fact"><b>Claude</b><p>A model that starts from the market\'s odds and moves them with expert picks, Jr\'s picks, speed figures, Grade 1 form, pace and track bias. The race-day version (v1.1) used 30 form factors; the current engine scores 40. It refits after each race day and keeps a change only if it predicts better on races it was not fitted to. On this card its race-day picks tracked the favorite or the experts every time, so judge it on its win chances, not on bold calls.</p></div>' +
     '<div class="panel fact"><b>Jr</b><p>A human handicapper working from a handwritten sheet: green boxes for the best values on each row, then judgment. His method and picks appear with his written permission. The page\'s "Jr\'s method" tab is an approximation of his sheet, not Jr himself.</p></div>' +
     '<div class="panel fact"><b>The experts</b><p>' + esc(expertBlurb()) + '</p></div>' +
     '<div class="panel fact"><b>The market</b><p>The morning-line favorite, or the live-odds favorite once every starter\'s odds are entered. The crowd is hard to beat: it is the bar everyone else is measured against.</p></div></div>';
@@ -214,14 +226,14 @@ function vHow() {
   var cl = rec.claude;
   h += '<h3 id="how-score">How we keep score</h3><ul class="clean">' +
     '<li><b>Race-day picks only.</b> Claude\'s record uses the top pick the race-day engine (v1.1) made before each result. The model was refit afterwards (v2.0) on these same races; anything shown with v2.0 numbers on finished races is labeled "in hindsight" and never enters the record.</li>' +
-    '<li><b>What "race-day" means on this card.</b> For the 2026 Breeders\' Cup the race-day picks were written into the record on Oct 31 from the race-day engine, rather than stamped by an outside clock before each post. Treat the record as the engine\'s own log, not a third-party-timestamped one. One check anyone can rerun: the race-day model\'s weights (v1.1, saved Oct 30 at 4:30 a.m. ET, before the first race), fed only the results known before each race, reproduce all 14 race-day picks, with win chances within about a point. The refit v2.0 model would have picked differently in the Turf Sprint, which is why it never enters the record.</li>' +
-    '<li><b>Payoffs.</b> Each $2 win payoff comes from the official chart or reputable results reports, with source links kept in the race\'s result record.</li>' +
+    '<li><b>What "race-day" means on this card.</b> For the 2026 Breeders\' Cup the race-day picks were written into the record on Oct 31 from the race-day engine, rather than stamped by an outside clock before each post. Treat the record as the engine\'s own log, not a third-party-timestamped one. One check anyone can rerun from this site\'s code: the race-day model\'s weights (v1.1, which its own history records as saved Oct 30 at 4:30 a.m. ET), fed only the results known before each race, reproduce all 14 race-day picks with win chances within about a point (on today\'s engine, 2.1). That shows the record is consistent with the v1.1 model; it can\'t prove when the picks were made. The refit v2.0 model would have picked differently in the Turf Sprint, which is why refit picks never enter the record.</li>' +
+    '<li><b>Results and payoffs.</b> On race day the finishes came from published results (Sporting Life, DRF and others) and the $2 payoffs mostly from one results page (US Racing). On ' + esc(verifyDate()) + ' every winner, finish order and payoff was re-checked against independent pages, including America\'s Best Racing\'s chart data and NBC Sports\' results tracker. All of them matched. Each race page lists its links.</li>' +
     '<li><b>Sample size.</b> ' + (cl.n ? 'Claude\'s ' + cl.w + ' winners from ' + cl.n + ' races fits a true hit rate anywhere from ' + pctI(cl.ci[0]) + ' to ' + pctI(cl.ci[1]) + ' (exact 95% range). ' : '') + 'No source on this card has enough races to prove an edge. Judging a method takes hundreds of locked races.</li>' +
     '<li><b>Win chances, not certainties.</b> ' + (rec.lockedN ? 'Claude\'s locked picks were priced to win about ' + rec.lockedExp.toFixed(1) + ' races and won ' + cl.w + '. Running hot on a small card is luck as much as skill.' : '') + '</li></ul>' + recordLine();
   h += '<h3 id="how-gaps">Known gaps</h3>' + (gaps.length ? '<ul class="clean">' + gaps.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '<p class="muted">None recorded.</p>') + '<p class="small muted">These are the data gaps the engine recorded when it loaded the card (as of ' + esc((S.meta && S.meta.asOf) || '—') + ').</p>';
   h += '<h3 id="how-gloss">Glossary</h3><dl class="gloss">' + GLOSS.map(function (x) { return '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>'; }).join('') + '</dl>';
   h += '<h3 id="how-play">Responsible play</h3><div class="panel rg"><p><b>This is decision support, not betting advice.</b> Nothing here is a tip to bet, a promise of profit or licensed financial advice. Most bets lose; the track\'s cut makes sure of it.</p><ul class="clean small"><li>21+ only. Bet only where it is legal for you, through a licensed outlet.</li><li>Set a budget before the first race and treat it as spent. Never chase losses.</li><li>If money is tight, or you are in a bankruptcy or other financial proceeding, the right bet is no bet.</li><li>Gambling problem? Call or text <b>1-800-GAMBLER</b> (1-800-426-2537) or the National Problem Gambling Helpline, <b>1-800-MY-RESET</b> (1-800-697-3738). Both answer 24/7 by call, text or chat.</li></ul></div>';
-  h += '<h3 id="how-credits">Credits and sources</h3><ul class="clean small"><li>Past performances: the Breeders\' Cup\'s free program PPs (Equibase data). Results and payoffs: official charts and the reports linked on each race. Expert picks: linked to each outlet\'s own page.</li><li>Jr\'s method and picks appear with his written permission.</li><li>Model and page: built with Claude. Full source lists are under <a href="#data">Data &amp; sources</a>.</li></ul>';
+  h += '<h3 id="how-credits">Credits and sources</h3><ul class="clean small"><li>Past performances: the Breeders\' Cup\'s free program PPs (Equibase data). Results and payoffs: published results and chart data, linked on each race page. Expert picks: linked to the published page where one is on file.</li><li>Jr\'s method and picks appear with his written permission.</li><li>Model and page: built with Claude. Full source lists are under <a href="#data">Data &amp; sources</a>.</li></ul>';
   return h;
 }
 function playAct(x, el) {
@@ -239,7 +251,18 @@ function raceCalls(r) {
   var c = callsOf(r); if (!c) return ''; var done = !!c.win;
   return '<div class="calls rcalls">' + SRC.map(function (s0) { var p = c[s0.k]; var st = done && p ? (p === c.win ? ' hit' : ' miss') : '';
     return '<div class="call call-' + s0.cls + st + '"><span class="eyebrow">' + esc(s0.name) + (s0.k === 'claude' && done ? ' · race day' : '') + '</span>' + (p ? '<span class="cn">' + chip(p) + ' <b>' + esc(hName(r.id, p)) + '</b></span>' : '<span class="small muted">' + (s0.k === 'jr' ? 'didn\'t play this race' : 'no pick') + '</span>') + (done && p ? '<span class="verdict">' + (p === c.win ? 'Winner' : 'Missed') + '</span>' : '') + '</div>'; }).join('') +
-    (done ? '<div class="call call-w"><span class="eyebrow">Winner</span><span class="cn">' + chip(c.win) + ' <b>' + esc(hName(r.id, c.win)) + '</b></span><span class="small muted">' + (c.pay != null ? '$2 win paid ' + money(c.pay) : 'payoff not on file') + '</span></div>' : '') + '</div>';
+    (done ? '<div class="call call-w"><span class="eyebrow">Winner</span><span class="cn">' + chip(c.win) + ' <b>' + esc(hName(r.id, c.win)) + '</b></span><span class="small muted">' + (c.pay != null ? '$2 win paid ' + money(c.pay) : 'payoff not on file') + '</span></div>' : '') + '</div>' +
+    (done ? resultSources(r) : '');
+}
+// Where the result came from: the race-day record's own note and links, then the independent re-check.
+function linkify(t) { return esc(t).replace(/https?:\/\/[^\s<>"')]+/g, function (u) { var clean = u.replace(/[.,;]+$/, ''); var host = clean.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, ''); return '<a href="' + clean + '" rel="noopener noreferrer" target="_blank">' + host + '</a>' + u.slice(clean.length); }); }
+function verifyDate() { var v = window.__VERIFY__; var d = v && dParts(v.checkedOn); return d ? MONL[d.mon] + ' ' + d.day + ', ' + d.y : 'Nov 6, 2026'; }
+function resultSources(r) {
+  var res = S.results[r.id] || {}, v = window.__VERIFY__, vs = v && v.races && v.races[r.id];
+  var h = '<details class="srcs small"><summary>Where this result comes from</summary>';
+  if (res.source) h += '<p><b>Race-day record:</b> ' + linkify(res.source) + (res.payoffSource ? ' · payoff: ' + linkify(res.payoffSource) : '') + '</p>';
+  if (vs && vs.length) h += '<p><b>Re-checked ' + esc(verifyDate()) + ':</b> finish and $2 payoff match ' + vs.map(function (x) { return '<a href="' + esc(x.url) + '" rel="noopener noreferrer" target="_blank">' + esc(x.label) + '</a>'; }).join(' and ') + '.</p>';
+  return h + '</details>';
 }
 // ---------- record fingerprint (SHA-256 of the stored record, checked against record.json) ----------
 var REC = { state: 'idle', hash: null };
@@ -260,5 +283,6 @@ function recordLine() {
     '<br><span class="muted">A fingerprint of every graded race\'s race-day pick, official order, payoff and Jr\'s picks, published as <a href="record.json">record.json</a> in this site\'s public GitHub history. Change one pick, finish or payoff and the fingerprint changes. It proves the record hasn\'t moved since it was published, not when each pick was made.</span></div>';
 }
 
-function expertBlurb() { var n = 0, u = 0, o = {}; S.races.forEach(function (r) { r.horses.forEach(function (h) { (h.experts || []).forEach(function (e) { n++; if (e.url) u++; if (e.o) o[e.o] = 1; }); }); });
-  return 'Published picks from named handicappers at ' + Object.keys(o).length + ' outlets, including DRF, NBC and Racing Post. ' + (n ? u + ' of ' + n + ' picks link to the outlet\'s own page; the rest came from a picks roundup compiled on Thursday, Oct 29. ' : '') + 'Picks on scratched horses don\'t count.'; }
+function outletKey(o) { var k = String(o || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/^the\s+/, '').trim(); var AL = { abr: 'america\'s best racing', drf: 'daily racing form', 'nbc sports': 'nbc', 'sporting life weekend panel': 'sporting life' }; return AL[k] || k; }
+function expertBlurb() { var n = 0, u = 0, o = {}; S.races.forEach(function (r) { r.horses.forEach(function (h) { (h.experts || []).forEach(function (e) { n++; if (e.url) u++; if (e.o) o[outletKey(e.o)] = 1; }); }); });
+  return 'Published picks from named handicappers at about ' + Object.keys(o).length + ' outlets, including DRF, NBC and Racing Post. ' + (n ? u + ' of ' + n + ' picks link to the page where they were published (some through partners such as VSiN or Yahoo); the rest came from a picks roundup compiled on Thursday, Oct 29. ' : '') + 'Picks on scratched horses don\'t count.'; }
