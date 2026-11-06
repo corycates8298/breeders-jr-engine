@@ -5,7 +5,7 @@
 Who called the 2026 Breeders' Cup? Four handicappers picked the card at Keeneland (Oct 30–31, 2026):
 - **Claude:** a model that starts from the market and adjusts with 40 required factors per horse, speed figures, Grade 1 form, pace, track bias, expert picks and Jr's picks.
 - **Jr:** a human handicapper's handwritten sheet (Friday card), shown with his written permission.
-- **The experts:** named, published win picks, each linked to its source.
+- **The experts:** named, published picks from about 30 outlets, linked to the outlet's page where one is on file.
 - **The market:** the morning-line favorite, or the live-odds favorite once every starter has odds.
 
 The site keeps an honest score for all four and lets visitors try to beat them.
@@ -22,6 +22,7 @@ The site keeps an honest score for all four and lets visitors try to beat them.
 ## How the record is kept
 - Claude's record uses only the race-day engine's picks (v1.1). The model was refit afterwards (v2.0) on these same races; anything computed with v2.0 on finished races is labeled "in hindsight" and never enters the record.
 - For this card the race-day picks were written into the record on Oct 31 from the race-day engine, not timestamped by an outside service before each post. Only each top pick and its win chance were saved.
+- Reproducible check: the v1.1 weights (saved Oct 30, 4:30 a.m. ET, before the first race), fed only the results known before each race, reproduce all 14 race-day picks with `src/engine.js`; win chances agree within about a point (the current engine is 2.1).
 - Results and $2 win payoffs come from official charts or reputable results reports, with source links kept in each result.
 - Fourteen races can't prove an edge for any source. The site shows the exact 95% range for every hit rate.
 - `record.json` holds the graded record and its SHA-256 fingerprint; the page recomputes the fingerprint from its own data and shows whether it matches. Change a pick, finish or payoff and the fingerprint changes.

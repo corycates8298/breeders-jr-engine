@@ -16,7 +16,16 @@ var S = {
 // ---------- what-if scenario (kept in this browser only) ----------
 var SCN_KEY = 'bje-scenario-v1';
 function emptyScn() { return { going: {}, bias: {}, pace: {}, hypo: {} }; }
-function loadScn() { try { var v = JSON.parse(localStorage.getItem(SCN_KEY) || 'null'); if (v && typeof v === 'object') { var e = emptyScn(); Object.keys(e).forEach(function (k) { if (v[k] && typeof v[k] === 'object') e[k] = v[k]; }); return e; } } catch (e) { } return emptyScn(); }
+function loadScn() {
+  // Rebuild the what-if from scratch, keeping only well-formed entries, so a damaged value in this browser can never stop the page.
+  var e = emptyScn(), v = null; try { v = JSON.parse(localStorage.getItem(SCN_KEY) || 'null'); } catch (er) { v = null; }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return e;
+  var SK = { D: 1, T: 1, S: 1 }, GO = { fast: 1, good: 1, off: 1 }, SH = { lone: 1, honest: 1, contested: 1 }, isObj = function (x) { return x && typeof x === 'object' && !Array.isArray(x); };
+  if (isObj(v.going)) Object.keys(v.going).forEach(function (d) { if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !isObj(v.going[d])) return; var g = {}; Object.keys(v.going[d]).forEach(function (sk) { if (SK[sk] && GO[v.going[d][sk]]) g[sk] = v.going[d][sk]; }); if (Object.keys(g).length) e.going[d] = g; });
+  if (isObj(v.bias)) Object.keys(v.bias).forEach(function (sk) { var b = v.bias[sk]; if (SK[sk] && isObj(b) && isFinite(+b.speed) && isFinite(+b.inside)) e.bias[sk] = { speed: +b.speed, inside: +b.inside }; });
+  if (isObj(v.pace)) Object.keys(v.pace).forEach(function (rid) { if (/^[a-z0-9][a-z0-9-]*$/.test(rid) && SH[v.pace[rid]]) e.pace[rid] = v.pace[rid]; });
+  if (isObj(v.hypo)) Object.keys(v.hypo).forEach(function (rid) { var l = v.hypo[rid]; if (/^[a-z0-9][a-z0-9-]*$/.test(rid) && Array.isArray(l)) { var ok = l.map(String).filter(function (p) { return /^[0-9]{1,2}[A-Z]?$/.test(p); }).slice(0, 30); if (ok.length) e.hypo[rid] = ok; } });
+  return e; }
 function saveScn() { try { localStorage.setItem(SCN_KEY, JSON.stringify(S.ui.scn)); } catch (e) { } }
 S.ui.scn = loadScn();
 var SURF_NAME = { D: 'Dirt', T: 'Turf', S: 'Synthetic' };
@@ -199,11 +208,19 @@ function ordinal(n) { n = +n; var s = ['th', 'st', 'nd', 'rd'], v = n % 100; ret
 function factor(key) { return E.FACTORS.find(function (f) { return f.key === key; }); }
 
 // ---------- tooltip ----------
+// Tooltips carry a little markup (<b>, <br>, <i>). Parse it in an inert document and rebuild it keeping only
+// text and those tags, so a horse name or note containing HTML can never run as code.
+function safeTip(html) {
+  var doc; try { doc = new DOMParser().parseFromString('<body>' + String(html || '') + '</body>', 'text/html'); } catch (e) { return esc(html); }
+  var OK = { B: 'b', BR: 'br', I: 'i', STRONG: 'b', EM: 'i' };
+  function walk(n) { var out = ''; n.childNodes.forEach(function (c) { if (c.nodeType === 3) out += esc(c.nodeValue); else if (c.nodeType === 1) { var t = OK[c.tagName]; if (t === 'br') out += '<br>'; else if (t) out += '<' + t + '>' + walk(c) + '</' + t + '>'; else out += walk(c); } }); return out; }
+  return walk(doc.body);
+}
 var tip = $('#tip');
 document.addEventListener('pointermove', function (e) {
   var t = e.target.closest && e.target.closest('[data-tip]');
   if (!t) { tip.style.display = 'none'; return; }
-  tip.innerHTML = t.getAttribute('data-tip'); tip.style.display = 'block';
+  tip.innerHTML = safeTip(t.getAttribute('data-tip')); tip.style.display = 'block';
   var x = e.clientX + 14, y = e.clientY + 14; var w = tip.offsetWidth, h = tip.offsetHeight;
   if (x + w > innerWidth - 8) x = e.clientX - w - 14; if (y + h > innerHeight - 8) y = e.clientY - h - 14;
   tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
@@ -372,6 +389,7 @@ function render() {
     else if (v === 'connections') html = vConnections();
     else if (v === 'cards') html = vCards();
   } catch (e) { console.error(e); html = '<div class="empty"><h2>Something broke drawing this view</h2><p class="mono">' + esc(e.message) + '</p></div>'; }
+  if (LAB_VIEWS.indexOf(v) >= 0 && S.races.some(function (r0) { return hasRes(r0.id); })) html = '<p class="note labnote small">Lab views run today\'s refit model (' + esc(weightsNow().version || '') + '). On finished races its numbers are hindsight, tuned on those results; the <a href="#results">scorecard</a> uses race-day picks only.</p>' + html;
   var sp = scnParts(); if (sp.length) html = '<div class="note scn" style="margin-top:10px">What-if on this screen only: ' + esc(sp.join(' · ')) + ' <button class="btn" data-act="scn-reset">Clear</button> <a href="#forecast">Edit</a></div>' + html;
   if (S.errors.length) html = '<p class="note">Some data could not load: ' + esc(S.errors.join('; ')) + '</p>' + html;
   $('#app').innerHTML = html;
@@ -415,7 +433,7 @@ function vDashboard() {
   var edges = [];
   S.races.forEach(function (r) { var a = A[r.id]; if (!a) return; activeH(a).forEach(function (hh) { var p = a.M.p[hh.pgm], q = a.C.q[hh.pgm]; if (p >= 0.05) edges.push({ r: r, h: hh, p: p, q: q, e: p - q }); }); });
   edges.sort(function (x, y) { return y.e - x.e; });
-  h += '<h2>Where the model moves most from the market</h2><div class="grid g2"><div class="tw"><table><thead><tr><th>Above the market</th><th class="r">Claude</th><th class="r">Market</th><th class="r">Edge</th></tr></thead><tbody>' + edges.slice(0, 8).map(edgeRow).join('') + '</tbody></table></div>' +
+  h += '<h2>Where the model moves most from the market</h2><p class="small muted">Today\'s refit model' + (S.races.some(function (r0) { return hasRes(r0.id); }) ? ', which on finished races is hindsight' : '') + '.</p><div class="grid g2"><div class="tw"><table><thead><tr><th>Above the market</th><th class="r">Claude</th><th class="r">Market</th><th class="r">Edge</th></tr></thead><tbody>' + edges.slice(0, 8).map(edgeRow).join('') + '</tbody></table></div>' +
     '<div class="tw"><table><thead><tr><th>Below the market</th><th class="r">Claude</th><th class="r">Market</th><th class="r">Edge</th></tr></thead><tbody>' + edges.slice(-8).reverse().map(edgeRow).join('') + '</tbody></table></div></div>';
   h += '<p class="note" style="margin-top:14px">Decision support, not betting advice. Every win chance here is an estimate built on public data and the morning line; live odds will differ, and a 30% horse loses 7 times in 10.</p>';
   return h;
@@ -489,7 +507,7 @@ function raceHorses(a) {
     var f = a.F[hh.pgm]; var greens = E.FACTORS.filter(function (c) { return a.V.byFactor[c.key].greens.indexOf(hh.pgm) >= 0; });
     return '<a class="panel" style="text-decoration:none;color:inherit;display:block" href="#horse-' + r.id + '-' + hh.pgm + '"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><div>' + chip(hh.pgm) + ' <b>' + esc(hh.name) + '</b>' + statusTag(hh) + '</div><div class="num"><b>' + (E.isActive(hh) ? pct(a.M.p[hh.pgm], 0) : '—') + '</b> <span class="muted small">ML ' + esc(hh.ml) + '</span></div></div>' +
       '<div class="small ink2" style="margin-top:6px">Last 3 speed: ' + (f.last3raw.length ? esc(f.last3raw.join(' · ')) : '—') + ' · avg ' + (f.avg3 != null ? f.avg3.toFixed(1) : '—') + ' (' + signed(f.trend, 1) + ')</div>' +
-      '<div class="small" style="margin-top:6px">Top four in ' + greens.length + ' of 35: ' + greens.slice(0, 8).map(function (c) { return '<span class="hl" style="padding:0 4px">' + esc(c.label) + '</span>'; }).join(' ') + (greens.length > 8 ? ' …' : '') + '</div></a>';
+      '<div class="small" style="margin-top:6px">Green (top third of the field) on ' + greens.length + ' of ' + E.FACTORS.length + ' factors: ' + greens.slice(0, 8).map(function (c) { return '<span class="hl" style="padding:0 4px">' + esc(c.label) + '</span>'; }).join(' ') + (greens.length > 8 ? ' …' : '') + '</div></a>';
   }).join('') + '</div>';
 }
 function raceMatrix(a) {
