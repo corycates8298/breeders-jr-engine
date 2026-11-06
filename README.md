@@ -30,7 +30,7 @@ The site keeps an honest score for all four and lets visitors try to beat them.
 ## Building
 The page is one self-contained `index.html` built from `src/`:
 - `src/shell.html` (page shell and markers), `src/style.css`, `src/engine.js` (the pure-function model), `src/app.js` and `src/plus.js` (views), `src/data.js` (the read-only database snapshot), `src/verify.js` (the Nov 6 re-check links), `src/shim.js` (in-memory stand-in for the live engine's database).
-- Run `python3 build.py` to rebuild `index.html` and `record.json`. `og.png` is the social share image.
+- Run `python3 build.py` to rebuild `index.html` and `record.json`. `og.png` is the social share image; rebuild it with `python3 tools/make_og.py` after the standings change.
 
 ## This copy is read-only
 - **Data:** every result through the Classic, as of Nov 1, 2026.
