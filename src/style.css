@@ -1,11 +1,11 @@
 
 /* Layout: a race-program workbook — tote-style header, tab strip, then dense tables and charts on paper. */
 :root{
-  --bg:#f3f5f1; --paper:#ffffff; --ink:#15201a; --ink2:#46524b; --muted:#6c776f; --line:#d7ddd6; --line2:#e8ece6;
+  --bg:#f3f5f1; --paper:#ffffff; --ink:#15201a; --ink2:#46524b; --muted:#5d6861; --line:#d7ddd6; --line2:#e8ece6;
   --accent:#1c5a40; --accent-ink:#ffffff; --brass:#9a6a12;
   --s-claude:#16855a; --s-jr:#c27c0e; --s-mkt:#3a6fd1; --neutral:#a3aaa4;
   --hl-green:rgba(96,200,60,.34); --hl-yellow:rgba(255,226,40,.55);
-  --good:#1f7a3a; --warn:#a86a00; --bad:#b3261e;
+  --good:#1f7a3a; --warn:#8f5a00; --bad:#b3261e;
   --chip-ring:rgba(0,0,0,.25);
   --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif; --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
@@ -58,7 +58,7 @@ td.r,th.r{text-align:right} td.c,th.c{text-align:center}
 tr.click{cursor:pointer} tr.click:hover td{background:var(--line2)}
 tr[data-go]:focus-visible{outline:2px solid var(--s-mkt);outline-offset:-2px}
 p,li,.note{overflow-wrap:break-word}
-tr.dim td{opacity:.55}
+tr.dim td{opacity:.7}
 .chip{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 5px;border-radius:4px;font:700 13px/1 var(--f-display);box-shadow:inset 0 0 0 1px var(--chip-ring);vertical-align:middle}
 .hname{font-weight:500}
 .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
@@ -178,7 +178,7 @@ nav.lab a:hover{background:var(--line2)} nav.lab a.on{background:var(--ink);colo
 .call{position:relative;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);border-top:4px solid var(--cc);background:var(--bg)}
 .call-c{--cc:var(--s-claude)} .call-j{--cc:var(--s-jr)} .call-e{--cc:var(--s-exp)} .call-m{--cc:var(--s-mkt)}
 .call b{font:600 15.5px/1.15 var(--f-display)}
-.call.hit{background:color-mix(in srgb,var(--good) 12%,var(--paper));border-color:var(--good)} .call.miss{opacity:.72}
+.call.hit{background:color-mix(in srgb,var(--good) 12%,var(--paper));border-color:var(--good)} .call.miss{background:var(--paper)} .call.miss b{color:var(--ink2)}
 .call .verdict{position:absolute;top:8px;right:10px;font:700 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)} .call.hit .verdict{color:var(--good)}
 .field{display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
 .horse{display:flex;align-items:center;gap:8px;text-align:left;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:500 14px var(--f-body);cursor:pointer;min-height:44px}
@@ -224,3 +224,4 @@ h2[id],h3[id]{scroll-margin-top:70px}
 }
 .call .cn{display:flex;gap:6px;align-items:center;min-width:0} .call .cn b{overflow:hidden;text-overflow:ellipsis}
 @media (max-width:640px){header.top{flex-wrap:nowrap;align-items:center;padding:10px 0 8px;border-bottom-width:2px} .brand .mark{width:34px;height:34px;font-size:16px} .brand .eyebrow{font-size:10.5px;letter-spacing:.08em} .g4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .kpi b{font-size:26px}}
+.call-w{--cc:var(--brass);background:var(--paper)} .rcalls{margin:12px 0}

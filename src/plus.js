@@ -233,3 +233,11 @@ function playAct(x, el) {
   else if (x === 'play-reset') { if (!confirm('Clear your picks and start the card again?')) return; PLAY = { picks: {}, shown: {} }; savePlay(PLAY); if (location.hash === '#play-' + g[0].id) render(); else location.hash = 'play-' + g[0].id; }
   else if (x === 'play-share') doShare();
 }
+
+// The four calls on a race page; verdicts only once the race is official.
+function raceCalls(r) {
+  var c = callsOf(r); if (!c) return ''; var done = !!c.win;
+  return '<div class="calls rcalls">' + SRC.map(function (s0) { var p = c[s0.k]; var st = done && p ? (p === c.win ? ' hit' : ' miss') : '';
+    return '<div class="call call-' + s0.cls + st + '"><span class="eyebrow">' + esc(s0.name) + (s0.k === 'claude' && done ? ' · race day' : '') + '</span>' + (p ? '<span class="cn">' + chip(p) + ' <b>' + esc(hName(r.id, p)) + '</b></span>' : '<span class="small muted">' + (s0.k === 'jr' ? 'didn\'t play this race' : 'no pick') + '</span>') + (done && p ? '<span class="verdict">' + (p === c.win ? 'Winner' : 'Missed') + '</span>' : '') + '</div>'; }).join('') +
+    (done ? '<div class="call call-w"><span class="eyebrow">Winner</span><span class="cn">' + chip(c.win) + ' <b>' + esc(hName(r.id, c.win)) + '</b></span><span class="small muted">' + (c.pay != null ? '$2 win paid ' + money(c.pay) : 'payoff not on file') + '</span></div>' : '') + '</div>';
+}
