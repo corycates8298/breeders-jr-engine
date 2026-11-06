@@ -23,7 +23,7 @@
 :root{
   --bg:#f3f5f1; --paper:#ffffff; --ink:#15201a; --ink2:#46524b; --muted:#5d6861; --line:#d7ddd6; --line2:#e8ece6;
   --accent:#1c5a40; --accent-ink:#ffffff; --brass:#9a6a12;
-  --s-claude:#16855a; --s-jr:#c27c0e; --s-mkt:#3a6fd1; --neutral:#a3aaa4;
+  --s-claude:#16855a; --s-jr:#99600a; --s-mkt:#3a6fd1; --neutral:#a3aaa4;
   --hl-green:rgba(96,200,60,.34); --hl-yellow:rgba(255,226,40,.55);
   --good:#1f7a3a; --warn:#8f5a00; --bad:#b3261e;
   --chip-ring:rgba(0,0,0,.25);
@@ -78,7 +78,7 @@ td.r,th.r{text-align:right} td.c,th.c{text-align:center}
 tr.click{cursor:pointer} tr.click:hover td{background:var(--line2)}
 tr[data-go]:focus-visible{outline:2px solid var(--s-mkt);outline-offset:-2px}
 p,li,.note{overflow-wrap:break-word}
-tr.dim td{opacity:.7}
+tr.dim td{color:var(--muted)}
 .chip{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 5px;border-radius:4px;font:700 13px/1 var(--f-display);box-shadow:inset 0 0 0 1px var(--chip-ring);vertical-align:middle}
 .hname{font-weight:500}
 .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
